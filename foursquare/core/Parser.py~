@@ -1,0 +1,14 @@
+# Dominic Smith <domlucasmith@gmail.com>
+
+import argparse
+
+##__________________________________________________________________||
+parser = argparse.ArgumentParser()
+parser.add_argument('--in-dir', default = './' , help = "Input directory")
+parser.add_argument('--out-dir', default = '.bak' , help = "Location of backup directory")
+parser.add_argument('--filesize', type = float, help = "individual file size, type is int (MB)")
+parser.add_argument('--structure', default = None, type = str)
+parser.add_argument('--dry_run', action = "store_true", default = False, help = "dry run")
+parser.add_argument('--force', action = "store_true", default = False, dest="force", help = "recreate all output files")
+parser.add_argument('--logging-level', default = 'WARN', choices = ['DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL'], help = 'level for logging')
+args = parser.parse_args()

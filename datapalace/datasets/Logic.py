@@ -1,0 +1,162 @@
+# Dominic Smith <domlucasmith@gmail.com>
+
+import os
+import sys
+import shutil
+import itertools
+import logging
+import random
+from string import digits, ascii_uppercase
+from filecmp import cmp
+
+##__________________________________________________________________||
+class Logic(object):
+    def __init__(self):
+        self.logger = logging.getLogger('Master datasets')
+        self._results = { } 
+
+    def __repr__(self):
+        return '{}({!r})'.format(self.__class__.__name__, self._results)
+
+    def convert_to_bytes(self, target_size, reverse=False):
+        '''
+        Convert MB to bytes. If another unit is required, this code should change.
+        '''
+        conversion = 1024**2
+        if reverse:
+            # Reverse to convert bytes to MB
+            bytes = target_size/conversion
+        else:
+            bytes = target_size*conversion
+        self.logger.info('Input target file size {} is in MB, converting to bytes {}'.format(target_size, bytes))
+        
+        return bytes
+        
+    def convert_structure(self, structure):
+        '''
+        Convert third argument of script from CSVs to dictionary.
+        Keys and Values are strings. Values need to be converted for later use.
+        '''
+        self.structure_list = structure.split(',')
+        try:
+            self.structure_dict = dict(itertools.izip_longest(*[iter(self.structure_list)] * 2,
+                                                              fillvalue=""))
+        except ValueError:
+            print "Could not convert list of file structure to dictionary : ", structure_list
+
+        return self.structure_dict
+
+    def fill_content_generator(self):
+        '''
+        Create a random alphanumeric string of a random size.
+        '''
+        chars = ascii_uppercase + digits
+        return ''.join(random.choice(chars) for _ in range(random.randint(0,10))) + '\n'
+
+    def write_files(self, full_path, file_size, dir_target_size, fileId=0):
+        '''
+        file_size represents the upper limit on the size of each file.
+        Instead of using two while loops, another method is 
+        to create X = dir_target_size/file_size number of files. 
+        By using int(X) to round to the lowest integer, the total size of the files 
+        should not exceed that of dir_target_size.
+
+        NB: Another option is to assign the size to each file using :
+        f = open('file1.txt', 'w')
+        f.seek(file_size-1)
+        f.write(self.fill_content_generator())
+        f.close()
+        But where's the fun in that?
+        '''        
+
+        dir_target_size = float(dir_target_size)
+        dir_size_bytes  = self.convert_to_bytes(dir_target_size)
+        file_size       = self.convert_to_bytes(file_size)
+        # This ensures the directory is of the size given in args
+        while self.dir_size(full_path) < dir_size_bytes:
+            fileId += 1
+            full_file_name = os.path.join(full_path, "file{}.txt".format(fileId))
+            with open(full_file_name,"w") as f:
+                # This ensures the file being written is of the size given in args
+                while os.path.getsize(full_file_name) < file_size:
+                    f.write(self.fill_content_generator())
+        self.logger.info('Master directory made under: {}'.format(full_path))
+                    
+    def fill_subdir(self, full_path, file_size, dir_target_size):
+        '''
+        Calculate the size of the subdirectory and fill them.
+        '''
+        self.logger.info('Target size of file: {} MB'.format(file_size))
+        self.logger.info('Target size of subdirectory {} : {} MB'.format(full_path, dir_target_size))
+        self.write_files(full_path, file_size, dir_target_size)   
+        self.logger.info('Finished creating files and writing to subdirectory: {}'.format(full_path))
+
+    def performUpdate(self, size_dict):
+        '''
+        size_dict is a dictionary with the key as the subdirectory and the value 
+        as a tuple of (subdir_size, max_file_size)
+        self.structure_dict represents the name of the subdirectories and the increase 
+        (in bytes)
+        '''
+        for subdir_path, sizes in size_dict.iteritems():
+            self.logger.info('Updating subdirectory: {}'.format(subdir_path))
+            max_filesize = sizes['max_filesize']
+            max_filesizeMB = self.convert_to_bytes(max_filesize,True)
+            total_size = sizes['total_size']
+            total_sizeMB = self.convert_to_bytes(total_size,True)
+            if subdir_path.split('/')[-1] in self.structure_dict:
+                total_sizeMB += int(self.structure_dict[subdir_path.split('/')[-1]])
+                fileId = len(self.list_files(subdir_path))
+                self.write_files(subdir_path, max_filesizeMB, total_sizeMB, fileId)
+
+    def backupDir(self, top_tree, backup_dir, dry_run):
+        '''
+        Method to copy recursively to a backup directory
+        '''
+        try:
+            from sh import rsync
+        except ImportError:
+            print "Unable to import rsync package"
+            
+        top_dir = os.path.basename(top_tree)
+        top_tree += os.sep
+        self.checkDirExists(top_tree)
+        if 'sh' in sys.modules:
+            # If rsync is available
+            rsync("-auhv", "--log-file={}".format(self.logger), top_tree, backup_dir)
+        else:
+            try:
+                if dry_run:
+                    self.logger.info('Will copy from {} to {}'.format(top_tree, backup_dir))
+                    sys.exit(1)
+                shutil.copytree(top_tree, backup_dir)
+            except shutil.Error as e:
+                print('Directory not copied. Error: %s' % e)
+            except OSError as e:
+                print('Directory not copied. Error: %s' % e)
+                
+    def checkDirExists(self, dir):
+        if not os.path.exists(dir):
+            self.logger.info('Directory does not exist: {}'.format(dir))
+            return False
+            
+    def dir_size(self, dir, dirOnly=True, withFiles=False):
+        '''
+        Method to return the size of a given directory.
+        '''
+        for root, dirs, files in os.walk(dir):
+            self._results = { }
+            # os.path.getsize won't work for symbolic links
+            total_size = sum(os.path.getsize(os.path.join(root, name)) for name in files) 
+            if dirOnly: return total_size
+            max_filesize = max(os.path.getsize(os.path.join(root, name)) for name in files)
+            self._results[root] = { } 
+            self._results[root]['total_size'] = total_size
+            self._results[root]['max_filesize'] = max_filesize
+        return self._results
+    
+    def list_files(self, path):
+        ''''
+        List files under a directory.
+        '''
+        return [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
