@@ -13,9 +13,9 @@ from core.Parser import args
 
 args_dict = vars(args)
 ##__________________________________________________________________||
-client_id = "IBIX2FYBXO3G1PTQKHYGX04BHQGXPT5PWSOKP2IIUAE3UOUI"
-client_secret = "T1NR1VWDKWVWDCE0BQISUSGV4IJUDL05DPGI0DCJTNPGI3AR"
-category_id = "4d4b7105d754a06376d81259"
+client_id = ''
+client_secret = ''
+category_id = ''
 
 ##__________________________________________________________________||
 def main(lat, long, distance):

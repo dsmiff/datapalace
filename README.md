@@ -31,3 +31,20 @@ python update_master_database.py --in-dir <dir> --structure <name1>,<size1>
 ```
 python backup_master_database.py --in-dir <dir> --out-dir <outdir>
 ```
+
+
+# Foursquare - WIP
+
+Scrape data off Foursquare and find a venue for a given latitude and longitude.
+
+### Requirements
+
+Pandas
+```
+pip install pandas
+```
+Or create a conda environment and set it up there.
+
+```
+python data_refresh.py
+```
