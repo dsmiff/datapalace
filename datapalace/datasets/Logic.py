@@ -80,6 +80,7 @@ class Logic(object):
                 # This ensures the file being written is of the size given in args
                 while os.path.getsize(full_file_name) < file_size:
                     f.write(self.fill_content_generator())
+                f.close()
         self.logger.info('Master directory made under: {}'.format(full_path))
                     
     def fill_subdir(self, full_path, file_size, dir_target_size):
